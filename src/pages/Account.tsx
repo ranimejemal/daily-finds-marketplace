@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Package, Heart, MapPin, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { User, Package, Heart, MapPin, Settings, LogOut, ChevronRight, Truck, CheckCircle, Clock, XCircle } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,174 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/backend/client';
+import { Badge } from '@/components/ui/badge';
+
+// Orders Tab Component with delivery tracking
+const OrdersTab: React.FC<{ userId: string }> = ({ userId }) => {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setOrders(data);
+      }
+      setLoading(false);
+    };
+
+    fetchOrders();
+  }, [userId]);
+
+  const getDeliveryStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return <Clock className="h-5 w-5 text-yellow-500" />;
+      case 'preparing': return <Package className="h-5 w-5 text-blue-500" />;
+      case 'out_for_delivery': return <Truck className="h-5 w-5 text-purple-500" />;
+      case 'delivered': return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'failed': return <XCircle className="h-5 w-5 text-red-500" />;
+      default: return <Clock className="h-5 w-5 text-muted-foreground" />;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      shipped: 'bg-purple-100 text-purple-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+    };
+    return variants[status] || 'bg-muted text-muted-foreground';
+  };
+
+  const formatDeliveryStatus = (status: string) => {
+    return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-card rounded-xl p-6 shadow-card">
+        <h2 className="font-display text-xl font-bold mb-6">Order History</h2>
+        <div className="text-center py-12 text-muted-foreground">Loading orders...</div>
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="bg-card rounded-xl p-6 shadow-card">
+        <h2 className="font-display text-xl font-bold mb-6">Order History</h2>
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground mb-4">You haven't placed any orders yet</p>
+          <Link to="/products">
+            <Button variant="fresh">Start Shopping</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-display text-xl font-bold">Order History</h2>
+      {orders.map((order) => (
+        <div key={order.id} className="bg-card rounded-xl p-6 shadow-card">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="font-semibold">Order #{order.id.slice(0, 8)}</p>
+              <p className="text-sm text-muted-foreground">
+                {new Date(order.created_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
+            <Badge className={getStatusBadge(order.status)}>{order.status}</Badge>
+          </div>
+
+          {/* Delivery Tracking */}
+          <div className="bg-muted/50 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-3 mb-3">
+              {getDeliveryStatusIcon(order.delivery_status || 'pending')}
+              <div>
+                <p className="font-medium">Delivery Status</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatDeliveryStatus(order.delivery_status || 'pending')}
+                </p>
+              </div>
+            </div>
+
+            {/* Progress Steps */}
+            <div className="flex items-center gap-2 mt-4">
+              {['pending', 'preparing', 'out_for_delivery', 'delivered'].map((step, idx) => {
+                const currentIdx = ['pending', 'preparing', 'out_for_delivery', 'delivered'].indexOf(order.delivery_status || 'pending');
+                const isCompleted = idx <= currentIdx;
+                const isFailed = order.delivery_status === 'failed';
+                
+                return (
+                  <React.Fragment key={step}>
+                    <div className={`h-2 flex-1 rounded-full ${isFailed ? 'bg-red-200' : isCompleted ? 'bg-primary' : 'bg-muted'}`} />
+                  </React.Fragment>
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              <span>Pending</span>
+              <span>Preparing</span>
+              <span>Out for Delivery</span>
+              <span>Delivered</span>
+            </div>
+
+            {order.tracking_code && (
+              <p className="text-sm mt-3">
+                <span className="text-muted-foreground">Tracking: </span>
+                <span className="font-mono">{order.tracking_code}</span>
+              </p>
+            )}
+            {order.estimated_delivery && (
+              <p className="text-sm mt-1">
+                <span className="text-muted-foreground">Estimated: </span>
+                {new Date(order.estimated_delivery).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+
+          {/* Order Items */}
+          <div className="space-y-2">
+            {order.order_items?.map((item: any) => (
+              <div key={item.id} className="flex items-center justify-between py-2 border-t">
+                <div className="flex items-center gap-3">
+                  {item.product_image && (
+                    <img src={item.product_image} alt={item.product_name} className="w-12 h-12 rounded object-cover" />
+                  )}
+                  <div>
+                    <p className="font-medium">{item.product_name}</p>
+                    <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                  </div>
+                </div>
+                <p className="font-semibold">${Number(item.price * item.quantity).toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t mt-4">
+            <span className="font-medium">Total</span>
+            <span className="font-bold text-lg">${Number(order.total).toFixed(2)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const Account: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -150,16 +318,7 @@ const Account: React.FC = () => {
               )}
 
               {activeTab === 'orders' && (
-                <div className="bg-card rounded-xl p-6 shadow-card">
-                  <h2 className="font-display text-xl font-bold mb-6">Order History</h2>
-                  <div className="text-center py-12">
-                    <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground mb-4">You haven't placed any orders yet</p>
-                    <Link to="/products">
-                      <Button variant="fresh">Start Shopping</Button>
-                    </Link>
-                  </div>
-                </div>
+                <OrdersTab userId={user.id} />
               )}
 
               {activeTab === 'favorites' && (
