@@ -24,7 +24,11 @@ const navItems = [
   { to: '/admin/settings', icon: Settings, label: 'Settings' },
 ];
 
-const AdminLayout: React.FC = () => {
+interface AdminLayoutProps {
+  children?: React.ReactNode;
+}
+
+const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
@@ -65,7 +69,7 @@ const AdminLayout: React.FC = () => {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">
-        <Outlet />
+        {children || <Outlet />}
       </main>
     </div>
   );
