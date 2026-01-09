@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, User, Heart, Menu, X, ChevronDown, MapPin, Phone, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,16 +10,41 @@ import { categories } from '@/data/products';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import CartSidebar from './CartSidebar';
+import SearchDropdown from '@/components/search/SearchDropdown';
+import { useProductSearch } from '@/hooks/useProductSearch';
 
 const Header: React.FC = () => {
+  const navigate = useNavigate();
   const { getCartCount } = useCart();
   const { user, signOut } = useAuth();
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
+  const { results, loading } = useProductSearch(searchQuery);
   const cartCount = getCartCount();
+
+  // Close search dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchOpen(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-card shadow-sm">
@@ -67,17 +92,29 @@ const Header: React.FC = () => {
           </Link>
 
           {/* Search bar */}
-          <div className="hidden md:flex flex-1 max-w-2xl relative">
-            <div className="relative w-full">
+          <div className="hidden md:flex flex-1 max-w-2xl relative" ref={searchRef}>
+            <form onSubmit={handleSearchSubmit} className="relative w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Search for groceries, brands, and more..."
                 className="pl-12 pr-4 h-12 rounded-full border-2 border-muted focus:border-primary bg-background"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
               />
-            </div>
+            </form>
+            {searchOpen && (
+              <SearchDropdown
+                results={results}
+                loading={loading}
+                query={searchQuery}
+                onClose={() => setSearchOpen(false)}
+              />
+            )}
           </div>
 
           {/* Actions */}
@@ -145,7 +182,7 @@ const Header: React.FC = () => {
 
         {/* Mobile search */}
         <div className="md:hidden mt-4">
-          <div className="relative">
+          <form onSubmit={handleSearchSubmit} className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="search"
@@ -154,7 +191,7 @@ const Header: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </form>
         </div>
       </div>
 

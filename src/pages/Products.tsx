@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Filter, Grid3X3, List, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
+import { Filter, Grid3X3, List, SlidersHorizontal, X, Search as SearchIcon } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/product/ProductCard';
@@ -11,23 +11,82 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { products, categories } from '@/data/products';
 import { Slider } from '@/components/ui/slider';
+import { supabase } from '@/integrations/backend/client';
+import type { Tables } from '@/integrations/supabase/types';
+
+type Product = Tables<'products'>;
 
 const ProductsPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('search') || '';
+  
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('featured');
   const [priceRange, setPriceRange] = useState([0, 50]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [onSaleOnly, setOnSaleOnly] = useState(false);
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch products from database when there's a search query
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (!searchQuery) {
+        setDbProducts([]);
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .or(`name.ilike.%${searchQuery}%,brand.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+          .eq('is_active', true);
+        
+        if (!error && data) {
+          setDbProducts(data);
+        }
+      } catch (err) {
+        console.error('Error fetching products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProducts();
+  }, [searchQuery]);
+
+  // Use DB products if searching, otherwise use static products
+  const baseProducts = useMemo(() => {
+    if (searchQuery && dbProducts.length > 0) {
+      return dbProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        price: Number(p.price),
+        originalPrice: p.original_price ? Number(p.original_price) : undefined,
+        image: p.image || '',
+        category: '',
+        brand: p.brand || '',
+        unit: p.unit || 'each',
+        rating: Number(p.rating) || 0,
+        reviewCount: p.review_count || 0,
+        inStock: p.in_stock ?? true,
+        badges: (p.badges || []) as ('sale' | 'new' | 'bestseller' | 'organic' | 'local')[],
+      }));
+    }
+    return products;
+  }, [searchQuery, dbProducts]);
 
   const brands = useMemo(() => 
-    [...new Set(products.map(p => p.brand))],
-    []
+    [...new Set(baseProducts.map(p => p.brand))],
+    [baseProducts]
   );
 
   const filteredProducts = useMemo(() => {
-    let result = [...products];
+    let result = [...baseProducts];
 
     // Filter by category
     if (selectedCategories.length > 0) {
@@ -71,7 +130,7 @@ const ProductsPage: React.FC = () => {
     }
 
     return result;
-  }, [selectedCategories, priceRange, inStockOnly, onSaleOnly, sortBy]);
+  }, [baseProducts, selectedCategories, priceRange, inStockOnly, onSaleOnly, sortBy]);
 
   const handleCategoryToggle = (category: string) => {
     setSelectedCategories(prev =>
