@@ -213,6 +213,9 @@ export type Database = {
         Row: {
           created_at: string
           delivery_fee: number | null
+          delivery_notes: string | null
+          delivery_status: Database["public"]["Enums"]["delivery_status"] | null
+          estimated_delivery: string | null
           id: string
           notes: string | null
           shipping_address_id: string | null
@@ -221,12 +224,18 @@ export type Database = {
           subtotal: number
           tax: number | null
           total: number
+          tracking_code: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           delivery_fee?: number | null
+          delivery_notes?: string | null
+          delivery_status?:
+            | Database["public"]["Enums"]["delivery_status"]
+            | null
+          estimated_delivery?: string | null
           id?: string
           notes?: string | null
           shipping_address_id?: string | null
@@ -235,12 +244,18 @@ export type Database = {
           subtotal: number
           tax?: number | null
           total: number
+          tracking_code?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           delivery_fee?: number | null
+          delivery_notes?: string | null
+          delivery_status?:
+            | Database["public"]["Enums"]["delivery_status"]
+            | null
+          estimated_delivery?: string | null
           id?: string
           notes?: string | null
           shipping_address_id?: string | null
@@ -249,6 +264,7 @@ export type Database = {
           subtotal?: number
           tax?: number | null
           total?: number
+          tracking_code?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -397,6 +413,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      delivery_status:
+        | "pending"
+        | "preparing"
+        | "out_for_delivery"
+        | "delivered"
+        | "failed"
       order_status:
         | "pending"
         | "processing"
@@ -531,6 +553,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      delivery_status: [
+        "pending",
+        "preparing",
+        "out_for_delivery",
+        "delivered",
+        "failed",
+      ],
       order_status: [
         "pending",
         "processing",
