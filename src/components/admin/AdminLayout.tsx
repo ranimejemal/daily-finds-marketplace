@@ -12,16 +12,13 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AdminNotifications from './AdminNotifications';
 
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/products', icon: Package, label: 'Products' },
   { to: '/admin/categories', icon: FolderTree, label: 'Categories' },
   { to: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
-  { to: '/admin/delivery', icon: Truck, label: 'Delivery' },
-  { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-  { to: '/admin/customers', icon: Users, label: 'Customers' },
-  { to: '/admin/settings', icon: Settings, label: 'Settings' },
 ];
 
 interface AdminLayoutProps {
@@ -34,10 +31,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Sidebar */}
       <aside className="w-64 bg-card border-r border-border shrink-0">
         <div className="p-6 border-b border-border">
-          <NavLink to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Back to Store</span>
-          </NavLink>
+          <div className="flex items-center justify-between">
+            <NavLink to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="text-sm">Back to Store</span>
+            </NavLink>
+            <AdminNotifications />
+          </div>
           <h1 className="font-display font-bold text-xl mt-4">
             Fresh<span className="text-primary">Mart</span> Admin
           </h1>
